@@ -4,22 +4,19 @@ Cache and recall CLI command results with a TTL. 🔄
 
 ## Overview
 
-recall avoids re-running expensive commands. It holds a command's result for a
-short window and hands it back when that command runs again with the same set of
-arguments.
+recall is used to avoid re-running expensive commands.
 
-Using it means adding a prefix. Put `recall --` in front of any command and give
-it a TTL. The first call runs the command normally and stores its output. Later
-calls with the same arguments, from the same directory, return from disk in
-milliseconds, until the entry expires and the next call refreshes it.
+It caches a command's result for a short window of time and returns the result from cache
+when the same command is invoked again with the same set of arguments.
 
-```console
+Example:
+```bash
 $ time recall -- gh api user
-{"login":"octocat","id":583231,"type":"User",...}
-real    0m1.31s
+{"login":"octocat","id":1,"type":"User",...}
+real    0m0.31s
 
 $ time recall -- gh api user
-{"login":"octocat","id":583231,"type":"User",...}
+{"login":"octocat","id":1,"type":"User",...}
 real    0m0.01s
 ```
 
@@ -30,13 +27,14 @@ identical. When parallel jobs share a rate limit, the duplicate calls can
 exhaust it and fail the run.
 
 Development tooling follows the same pattern. Build scripts, code generators,
-and editor integrations often run the same lookup many times in one session, and
-an edit-test loop repeats it on every save. A short TTL keeps those loops
-responsive without changing the tools themselves.
+and editor integrations often run the same command many times in one session.
+
+A short TTL backed cache keeps those loops responsive without changing the tools themselves.
 
 recall aims to stay lightweight and to keep its dependencies to a minimum. It
-needs no daemon, no config file, and no change to the command it wraps. Use it
-for any command that is slow, rate-limited, or billed per call.
+needs no daemon, no config file, and no change to the command it wraps.
+
+Use it for any command that is slow, rate-limited, or billed per call.
 
 ## Features
 
@@ -128,7 +126,7 @@ recall --ttl=10s -- kubectl get pods -o json
 
 ## Usage
 
-```
+```bash
 recall [flags] -- <command> [args...]
 
   --ttl         how long a cached result stays valid   (default 30s)
