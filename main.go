@@ -38,6 +38,8 @@ const (
 	exitNotRun   = 127
 )
 
+var version = "dev"
+
 type entry struct {
 	StoredAt time.Time `json:"stored_at,omitzero"`
 	ExitCode int       `json:"exit_code"`
@@ -71,6 +73,7 @@ func (a *app) run(ctx context.Context, argv []string) int {
 	maxOutput := flags.Int64("max-output", 1<<20, "do not cache results whose output exceeds this many bytes")
 	prune := flags.Bool("prune", false, "delete cached results older than -max-age, then exit")
 	maxAge := flags.Duration("max-age", 24*time.Hour, "age at which -prune deletes a cached result")
+	showVersion := flags.Bool("version", false, "print version and exit")
 
 	if err := flags.Parse(argv); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
@@ -87,6 +90,10 @@ func (a *app) run(ctx context.Context, argv []string) int {
 		}
 		defer dir.Close()
 		return a.prune(dir, *maxAge)
+	}
+	if *showVersion {
+		fmt.Fprintln(a.stdout, version)
+		return 0
 	}
 
 	args := flags.Args()

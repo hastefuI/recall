@@ -135,6 +135,7 @@ recall [flags] -- <command> [args...]
   --max-output  skip caching results larger than this  (default 1MiB)
   --prune       delete old cached results, then exit   (default false)
   --max-age     age at which --prune deletes a result  (default 24h)
+  --version     print version and exit
 ```
 
 ## License

@@ -143,6 +143,39 @@ func TestRunNoArgs(t *testing.T) {
 	}
 }
 
+func TestRunVersionFlagWorksWithoutCommand(t *testing.T) {
+	a, out, errb := newApp(t)
+
+	if code := a.run(t.Context(), []string{"--version"}); code != 0 {
+		t.Fatalf("exit code = %d, want 0", code)
+	}
+	if got := out.String(); got != "dev\n" {
+		t.Errorf("stdout = %q, want %q", got, "dev\n")
+	}
+	if errb.Len() != 0 {
+		t.Errorf("stderr = %q, want empty", errb.String())
+	}
+}
+
+func TestRunVersionFlagDoesNotRunCommand(t *testing.T) {
+	a, out, errb := newApp(t)
+
+	marker := filepath.Join(t.TempDir(), "runs")
+	args := recallArgs([]string{"--version"}, helperCmd(t, "-marker="+marker))
+	if code := a.run(t.Context(), args); code != 0 {
+		t.Fatalf("exit code = %d, want 0", code)
+	}
+	if got := out.String(); got != "dev\n" {
+		t.Errorf("stdout = %q, want %q", got, "dev\n")
+	}
+	if errb.Len() != 0 {
+		t.Errorf("stderr = %q, want empty", errb.String())
+	}
+	if _, err := os.Stat(marker); !os.IsNotExist(err) {
+		t.Errorf("command ran, marker state = %v, want no marker file", err)
+	}
+}
+
 func TestRunTimeoutIsNotCached(t *testing.T) {
 	a, _, _ := newApp(t)
 
