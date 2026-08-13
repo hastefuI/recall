@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"time"
+	"unsafe"
 
 	"golang.org/x/sys/windows"
 )
@@ -24,21 +25,37 @@ func checkOwner(root *os.Root) error {
 		return fmt.Errorf("%s: cannot read owner: %w", root.Name(), err)
 	}
 
-	user, err := windows.GetCurrentProcessToken().GetTokenUser()
+	token := windows.GetCurrentProcessToken()
+	user, err := token.GetTokenUser()
 	if err != nil {
 		return fmt.Errorf("cannot read process token: %w", err)
 	}
-	if !owner.Equals(user.User.Sid) {
-		return fmt.Errorf("%s is owned by %v, not %v, refusing to use it", root.Name(), owner, user.User.Sid)
+	if owner.Equals(user.User.Sid) || stampsOwner(token, owner) {
+		return nil
 	}
-	return nil
+	return fmt.Errorf("%s is owned by %v, not %v, refusing to use it", root.Name(), owner, user.User.Sid)
+}
+
+type tokenOwner struct{ Owner *windows.SID }
+
+func stampsOwner(t windows.Token, owner *windows.SID) bool {
+	var n uint32
+	windows.GetTokenInformation(t, windows.TokenOwner, nil, 0, &n)
+	if n == 0 {
+		return false
+	}
+	buf := make([]byte, n)
+	if err := windows.GetTokenInformation(t, windows.TokenOwner, &buf[0], n, &n); err != nil {
+		return false
+	}
+	return owner.Equals((*tokenOwner)(unsafe.Pointer(&buf[0])).Owner)
 }
 
 func (a *app) lock(ctx context.Context, dir *os.Root, name string) (func(), bool) {
 	deadline := time.Now().Add(lockWait)
 
 	for range lockOpenAttempts {
-		f, err := dir.OpenFile(name, os.O_CREATE|os.O_RDWR, 0o600)
+		f, err := openLockFile(dir, name)
 		if err != nil {
 			a.warn("cannot open lock file: %v", err)
 			return nil, false
@@ -82,13 +99,13 @@ func (a *app) waitForLock(ctx context.Context, f *os.File, name string, deadline
 }
 
 func tryRemoveLock(dir *os.Root, name string) bool {
-	f, err := dir.OpenFile(name, os.O_CREATE|os.O_RDWR, 0o600)
+	f, err := openLockFile(dir, name)
 	if err != nil {
 		return false
 	}
 	if err := lockRegion(f); err != nil {
 		f.Close()
-		return false // Another process runs this command now.
+		return false
 	}
 	unlockRegion(f)
 	f.Close()
@@ -98,7 +115,21 @@ func tryRemoveLock(dir *os.Root, name string) bool {
 
 const lockOpenAttempts = 8
 
-// A Windows byte-range lock is mandatory, so lock one byte.
+func openLockFile(dir *os.Root, name string) (*os.File, error) {
+	var err error
+	for range lockOpenAttempts {
+		var f *os.File
+		if f, err = dir.OpenFile(name, os.O_CREATE|os.O_RDWR, 0o600); err == nil {
+			return f, nil
+		}
+		if !errors.Is(err, windows.ERROR_ACCESS_DENIED) {
+			return nil, err
+		}
+		time.Sleep(lockPoll)
+	}
+	return nil, err
+}
+
 const lockBytes = 1
 
 func lockRegion(f *os.File) error {
