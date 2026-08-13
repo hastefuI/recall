@@ -59,6 +59,64 @@ changelog:
       - "Merge pull request"
       - "Merge branch"
 
+dockers:
+  - image_templates:
+      - "ghcr.io/{{ .Env.GORELEASER_REPO_OWNER }}/{{ .ProjectName }}:{{ .Version }}-amd64"
+      - "ghcr.io/{{ .Env.GORELEASER_REPO_OWNER }}/{{ .ProjectName }}:latest-amd64"
+    use: buildx
+    dockerfile: Dockerfile
+    extra_files:
+      - go.mod
+      - go.sum
+      - main.go
+      - os_unix.go
+      - os_windows.go
+    build_flag_templates:
+      - "--platform=linux/amd64"
+      - "--label=org.opencontainers.image.title={{ .ProjectName }}"
+      - "--label=org.opencontainers.image.description=Cache and recall CLI command results with a TTL"
+      - "--label=org.opencontainers.image.url=https://github.com/{{ .Env.GORELEASER_REPO_OWNER }}/{{ .ProjectName }}"
+      - "--label=org.opencontainers.image.source=https://github.com/{{ .Env.GORELEASER_REPO_OWNER }}/{{ .ProjectName }}"
+      - "--label=org.opencontainers.image.version={{ .Version }}"
+      - "--label=org.opencontainers.image.created={{ .Date }}"
+      - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
+      - "--label=org.opencontainers.image.licenses=MIT"
+    goos: linux
+    goarch: amd64
+  - image_templates:
+      - "ghcr.io/{{ .Env.GORELEASER_REPO_OWNER }}/{{ .ProjectName }}:{{ .Version }}-arm64"
+      - "ghcr.io/{{ .Env.GORELEASER_REPO_OWNER }}/{{ .ProjectName }}:latest-arm64"
+    use: buildx
+    dockerfile: Dockerfile
+    extra_files:
+      - go.mod
+      - go.sum
+      - main.go
+      - os_unix.go
+      - os_windows.go
+    build_flag_templates:
+      - "--platform=linux/arm64"
+      - "--label=org.opencontainers.image.title={{ .ProjectName }}"
+      - "--label=org.opencontainers.image.description=Cache and recall CLI command results with a TTL"
+      - "--label=org.opencontainers.image.url=https://github.com/{{ .Env.GORELEASER_REPO_OWNER }}/{{ .ProjectName }}"
+      - "--label=org.opencontainers.image.source=https://github.com/{{ .Env.GORELEASER_REPO_OWNER }}/{{ .ProjectName }}"
+      - "--label=org.opencontainers.image.version={{ .Version }}"
+      - "--label=org.opencontainers.image.created={{ .Date }}"
+      - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
+      - "--label=org.opencontainers.image.licenses=MIT"
+    goos: linux
+    goarch: arm64
+
+docker_manifests:
+  - name_template: "ghcr.io/{{ .Env.GORELEASER_REPO_OWNER }}/{{ .ProjectName }}:{{ .Version }}"
+    image_templates:
+      - "ghcr.io/{{ .Env.GORELEASER_REPO_OWNER }}/{{ .ProjectName }}:{{ .Version }}-amd64"
+      - "ghcr.io/{{ .Env.GORELEASER_REPO_OWNER }}/{{ .ProjectName }}:{{ .Version }}-arm64"
+  - name_template: "ghcr.io/{{ .Env.GORELEASER_REPO_OWNER }}/{{ .ProjectName }}:latest"
+    image_templates:
+      - "ghcr.io/{{ .Env.GORELEASER_REPO_OWNER }}/{{ .ProjectName }}:latest-amd64"
+      - "ghcr.io/{{ .Env.GORELEASER_REPO_OWNER }}/{{ .ProjectName }}:latest-arm64"
+
 release:
   draft: false
   prerelease: auto
