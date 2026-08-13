@@ -1,0 +1,7 @@
+# Build output (the binary shares its name with the module directory).
+/recall
+/recall.exe
+
+# Go test and coverage artifacts.
+*.test
+*.out
