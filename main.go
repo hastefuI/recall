@@ -7,7 +7,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -23,10 +22,13 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"google.golang.org/protobuf/encoding/protowire"
 )
 
 const (
-	cacheFormat = "v1"
+	cacheFormat = "v2"
+	cacheExt    = ".pb"
 
 	lockWait = 10 * time.Second
 	lockPoll = 25 * time.Millisecond
@@ -109,7 +111,7 @@ func (a *app) run(ctx context.Context, argv []string) int {
 	}
 	defer dir.Close()
 
-	name := key(args) + ".json"
+	name := key(args) + cacheExt
 
 	if !*force {
 		if e, ok := load(dir, name); ok && fresh(e, *ttl) {
@@ -192,15 +194,15 @@ func load(dir *os.Root, name string) (entry, bool) {
 	if err != nil {
 		return entry{}, false
 	}
-	var e entry
-	if err := json.Unmarshal(b, &e); err != nil {
+	e, err := decodeEntry(b)
+	if err != nil {
 		return entry{}, false
 	}
 	return e, true
 }
 
 func (a *app) store(dir *os.Root, name string, e entry) {
-	b, err := json.Marshal(e)
+	b, err := encodeEntry(e)
 	if err != nil {
 		a.warn("cannot encode cache entry: %v", err)
 		return
@@ -276,7 +278,72 @@ func (a *app) prune(dir *os.Root, maxAge time.Duration) int {
 }
 
 func prunable(name string) bool {
-	return strings.HasSuffix(name, ".json") || strings.Contains(name, ".json.tmp.")
+	return strings.HasSuffix(name, cacheExt) ||
+		strings.Contains(name, cacheExt+".tmp.") ||
+		strings.HasSuffix(name, ".json") ||
+		strings.Contains(name, ".json.tmp.")
+}
+
+func encodeEntry(e entry) ([]byte, error) {
+	var b []byte
+	b = protowire.AppendTag(b, 1, protowire.VarintType)
+	b = protowire.AppendVarint(b, uint64(e.StoredAt.UnixNano()))
+	b = protowire.AppendTag(b, 2, protowire.VarintType)
+	b = protowire.AppendVarint(b, uint64(e.ExitCode))
+	b = protowire.AppendTag(b, 3, protowire.BytesType)
+	b = protowire.AppendBytes(b, e.Stdout)
+	b = protowire.AppendTag(b, 4, protowire.BytesType)
+	b = protowire.AppendBytes(b, e.Stderr)
+	return b, nil
+}
+
+func decodeEntry(b []byte) (entry, error) {
+	var e entry
+	for len(b) > 0 {
+		num, typ, n := protowire.ConsumeTag(b)
+		if n < 0 {
+			return entry{}, protowire.ParseError(n)
+		}
+		b = b[n:]
+
+		switch num {
+		case 1:
+			v, m := protowire.ConsumeVarint(b)
+			if m < 0 {
+				return entry{}, protowire.ParseError(m)
+			}
+			e.StoredAt = time.Unix(0, int64(v))
+			b = b[m:]
+		case 2:
+			v, m := protowire.ConsumeVarint(b)
+			if m < 0 {
+				return entry{}, protowire.ParseError(m)
+			}
+			e.ExitCode = int(v)
+			b = b[m:]
+		case 3:
+			v, m := protowire.ConsumeBytes(b)
+			if m < 0 {
+				return entry{}, protowire.ParseError(m)
+			}
+			e.Stdout = append([]byte(nil), v...)
+			b = b[m:]
+		case 4:
+			v, m := protowire.ConsumeBytes(b)
+			if m < 0 {
+				return entry{}, protowire.ParseError(m)
+			}
+			e.Stderr = append([]byte(nil), v...)
+			b = b[m:]
+		default:
+			m := protowire.ConsumeFieldValue(num, typ, b)
+			if m < 0 {
+				return entry{}, protowire.ParseError(m)
+			}
+			b = b[m:]
+		}
+	}
+	return e, nil
 }
 
 func count(n int, noun string) string {

@@ -1,0 +1,10 @@
+syntax = "proto3";
+
+package recall.cache.v1;
+
+message CacheEntry {
+  int64 stored_at_unix_nano = 1;
+  int32 exit_code = 2;
+  bytes stdout = 3;
+  bytes stderr = 4;
+}

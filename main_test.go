@@ -213,7 +213,7 @@ func TestRunOversizeOutputIsNotCached(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer dir.Close()
-	if _, ok := load(dir, key(cmd)+".json"); ok {
+	if _, ok := load(dir, key(cmd)+cacheExt); ok {
 		t.Error("an oversize result was cached")
 	}
 }
