@@ -43,10 +43,10 @@ const (
 var version = "dev"
 
 type entry struct {
-	StoredAt time.Time `json:"stored_at,omitzero"`
-	ExitCode int       `json:"exit_code"`
-	Stdout   []byte    `json:"stdout,omitzero"`
-	Stderr   []byte    `json:"stderr,omitzero"`
+	StoredAt time.Time
+	ExitCode int
+	Stdout   []byte
+	Stderr   []byte
 }
 
 type app struct {
@@ -278,10 +278,7 @@ func (a *app) prune(dir *os.Root, maxAge time.Duration) int {
 }
 
 func prunable(name string) bool {
-	return strings.HasSuffix(name, cacheExt) ||
-		strings.Contains(name, cacheExt+".tmp.") ||
-		strings.HasSuffix(name, ".json") ||
-		strings.Contains(name, ".json.tmp.")
+	return strings.HasSuffix(name, cacheExt) || strings.Contains(name, cacheExt+".tmp.")
 }
 
 func encodeEntry(e entry) ([]byte, error) {

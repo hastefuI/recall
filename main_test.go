@@ -304,9 +304,9 @@ func TestStoreLeavesNoTemporaryFiles(t *testing.T) {
 	defer dir.Close()
 
 	want := entry{StoredAt: time.Now(), ExitCode: 7, Stdout: []byte("out"), Stderr: []byte("err")}
-	a.store(dir, "entry.json", want)
+	a.store(dir, "entry"+cacheExt, want)
 
-	got, ok := load(dir, "entry.json")
+	got, ok := load(dir, "entry"+cacheExt)
 	if !ok {
 		t.Fatal("entry was not stored")
 	}
@@ -389,19 +389,19 @@ func TestPruneRemovesOldEntriesAndKeepsFresh(t *testing.T) {
 	}
 	defer dir.Close()
 
-	a.store(dir, "old.json", entry{StoredAt: time.Now(), Stdout: []byte("stale")})
-	a.store(dir, "new.json", entry{StoredAt: time.Now(), Stdout: []byte("current")})
+	a.store(dir, "old"+cacheExt, entry{StoredAt: time.Now(), Stdout: []byte("stale")})
+	a.store(dir, "new"+cacheExt, entry{StoredAt: time.Now(), Stdout: []byte("current")})
 
-	backdate(t, dir, "old.json")
+	backdate(t, dir, "old"+cacheExt)
 
 	if code := a.prune(dir, 24*time.Hour); code != 0 {
 		t.Fatalf("prune exit code = %d, want 0", code)
 	}
 
-	if _, ok := load(dir, "old.json"); ok {
+	if _, ok := load(dir, "old"+cacheExt); ok {
 		t.Error("an entry older than max-age survived prune")
 	}
-	if _, ok := load(dir, "new.json"); !ok {
+	if _, ok := load(dir, "new"+cacheExt); !ok {
 		t.Error("an entry within max-age was pruned")
 	}
 }
@@ -416,17 +416,17 @@ func TestPruneRemovesUnheldLockFiles(t *testing.T) {
 	}
 	defer dir.Close()
 
-	f, err := dir.OpenFile("x.json.lock", os.O_CREATE|os.O_RDWR, 0o600)
+	f, err := dir.OpenFile("x"+cacheExt+".lock", os.O_CREATE|os.O_RDWR, 0o600)
 	if err != nil {
 		t.Fatal(err)
 	}
 	f.Close()
-	backdate(t, dir, "x.json.lock")
+	backdate(t, dir, "x"+cacheExt+".lock")
 
 	if code := a.prune(dir, time.Hour); code != 0 {
 		t.Fatalf("prune exit code = %d, want 0", code)
 	}
-	if _, err := dir.Stat("x.json.lock"); err == nil {
+	if _, err := dir.Stat("x" + cacheExt + ".lock"); err == nil {
 		t.Error("an unused lock file survived prune")
 	}
 }
@@ -441,17 +441,17 @@ func TestPruneKeepsHeldLockFiles(t *testing.T) {
 	}
 	defer dir.Close()
 
-	release, ok := a.lock(t.Context(), dir, "held.json.lock")
+	release, ok := a.lock(t.Context(), dir, "held"+cacheExt+".lock")
 	if !ok {
 		t.Fatal("could not take the lock")
 	}
 	defer release()
-	backdate(t, dir, "held.json.lock")
+	backdate(t, dir, "held"+cacheExt+".lock")
 
 	if code := a.prune(dir, time.Hour); code != 0 {
 		t.Fatalf("prune exit code = %d, want 0", code)
 	}
-	if _, err := dir.Stat("held.json.lock"); err != nil {
+	if _, err := dir.Stat("held" + cacheExt + ".lock"); err != nil {
 		t.Errorf("prune removed a lock file that was being held: %v", err)
 	}
 }
@@ -466,16 +466,16 @@ func TestLockDetectsReplacedLockFile(t *testing.T) {
 	}
 	defer dir.Close()
 
-	release, ok := a.lock(t.Context(), dir, "swap.json.lock")
+	release, ok := a.lock(t.Context(), dir, "swap"+cacheExt+".lock")
 	if !ok {
 		t.Fatal("could not take the lock")
 	}
-	if err := dir.Remove("swap.json.lock"); err != nil {
+	if err := dir.Remove("swap" + cacheExt + ".lock"); err != nil {
 		t.Fatal(err)
 	}
 	release()
 
-	release2, ok := a.lock(t.Context(), dir, "swap.json.lock")
+	release2, ok := a.lock(t.Context(), dir, "swap"+cacheExt+".lock")
 	if !ok {
 		t.Fatal("could not take the lock after the file was replaced")
 	}
@@ -492,7 +492,7 @@ func TestPruneRemovesOrphanedTempFiles(t *testing.T) {
 	}
 	defer dir.Close()
 
-	orphan := "abc.json.tmp.deadbeef"
+	orphan := "abc" + cacheExt + ".tmp.deadbeef"
 	f, err := dir.OpenFile(orphan, os.O_CREATE|os.O_RDWR, 0o600)
 	if err != nil {
 		t.Fatal(err)
