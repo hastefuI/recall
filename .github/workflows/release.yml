@@ -50,8 +50,12 @@ jobs:
         uses: goreleaser/goreleaser-action@v7
         with:
           distribution: goreleaser
-          version: "~> v2"
+          version: "v2.18.0"
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GORELEASER_REPO_OWNER: ${{ steps.owner.outputs.value }}
+          GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
+          HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
+          HOMEBREW_TAP_PUBLISHER_NAME: ${{ vars.HOMEBREW_TAP_PUBLISHER_NAME }}
+          HOMEBREW_TAP_PUBLISHER_EMAIL: ${{ vars.HOMEBREW_TAP_PUBLISHER_EMAIL }}
