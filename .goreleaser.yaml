@@ -79,6 +79,15 @@ dockers_v2:
       - main.go
       - os_unix.go
       - os_windows.go
+    annotations:
+      "index,manifest:org.opencontainers.image.title": "{{ .ProjectName }}"
+      "index,manifest:org.opencontainers.image.description": "Cache and recall CLI command results with a TTL"
+      "index,manifest:org.opencontainers.image.url": "https://github.com/{{ .Env.GORELEASER_REPO_OWNER }}/{{ .ProjectName }}"
+      "index,manifest:org.opencontainers.image.source": "https://github.com/{{ .Env.GORELEASER_REPO_OWNER }}/{{ .ProjectName }}"
+      "index,manifest:org.opencontainers.image.version": "{{ .Version }}"
+      "index,manifest:org.opencontainers.image.created": "{{ .Date }}"
+      "index,manifest:org.opencontainers.image.revision": "{{ .FullCommit }}"
+      "index,manifest:org.opencontainers.image.licenses": "MIT"
     labels:
       org.opencontainers.image.title: "{{ .ProjectName }}"
       org.opencontainers.image.description: "Cache and recall CLI command results with a TTL"
