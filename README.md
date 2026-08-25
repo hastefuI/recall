@@ -89,7 +89,7 @@ every step in the pipeline shares it:
 ```bash
 $ docker build -t ci-tools .
 $ docker run --rm -v recall-cache:/tmp/recall -e GH_TOKEN ci-tools \
-    --ttl=10m -- gh api user
+    --ttl=10m --env=GH_TOKEN -- gh api user
 ```
 
 If your image already contains the commands you need, add recall to that image
@@ -131,11 +131,22 @@ recall [flags] -- <command> [args...]
 
   --ttl         how long a cached result stays valid   (default 30s)
   --force       ignore any cached result and re-run    (default false)
+  --env         add a variable to the cache key        (repeatable)
   --timeout     kill the command if it runs longer     (default 0, disabled)
   --max-output  skip caching results larger than this  (default 1MiB)
   --prune       delete old cached results, then exit   (default false)
   --max-age     age at which --prune deletes a result  (default 24h)
   --version     print version and exit
+```
+
+recall keys the cache on the working directory, the command, and the arguments.
+It ignores the environment, because it cannot know which variables a command
+reads. Name the ones that matter with `--env`, or two calls that differ only in
+a token or a profile share one result:
+
+```bash
+recall --ttl=10m --env=GH_TOKEN -- gh api user
+recall --ttl=5m --env=AWS_PROFILE,AWS_REGION -- aws sts get-caller-identity
 ```
 
 ## License

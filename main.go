@@ -75,6 +75,8 @@ func (a *app) run(ctx context.Context, argv []string) int {
 	maxOutput := flags.Int64("max-output", 1<<20, "do not cache results whose output exceeds this many bytes")
 	prune := flags.Bool("prune", false, "delete cached results older than -max-age, then exit")
 	maxAge := flags.Duration("max-age", 24*time.Hour, "age at which -prune deletes a cached result")
+	var env envNames
+	flags.Var(&env, "env", "include this environment variable in the cache key (repeatable, comma-separated)")
 	showVersion := flags.Bool("version", false, "print version and exit")
 
 	if err := flags.Parse(argv); err != nil {
@@ -111,7 +113,7 @@ func (a *app) run(ctx context.Context, argv []string) int {
 	}
 	defer dir.Close()
 
-	name := key(args) + cacheExt
+	name := key(args, env) + cacheExt
 
 	if !*force {
 		if e, ok := load(dir, name); ok && fresh(e, *ttl) {
@@ -135,16 +137,41 @@ func (a *app) run(ctx context.Context, argv []string) int {
 	return e.ExitCode
 }
 
-func key(args []string) string {
+func key(args []string, env []string) string {
 	cwd, err := os.Getwd()
 	if err != nil {
 		cwd = "\x00nocwd\x00" + err.Error()
 	}
+
+	parts := []string{cacheFormat, cwd}
+	names := slices.Compact(slices.Sorted(slices.Values(env)))
+	for _, name := range names {
+		if v, ok := os.LookupEnv(name); ok {
+			parts = append(parts, name, "1"+v)
+		} else {
+			parts = append(parts, name, "0")
+		}
+	}
+	parts = append(parts, args...)
+
 	h := sha256.New()
-	for _, part := range slices.Concat([]string{cacheFormat, cwd}, args) {
+	for _, part := range parts {
 		fmt.Fprintf(h, "%d:%s", len(part), part)
 	}
 	return hex.EncodeToString(h.Sum(nil))
+}
+
+type envNames []string
+
+func (e *envNames) String() string { return strings.Join(*e, ",") }
+
+func (e *envNames) Set(v string) error {
+	for name := range strings.SplitSeq(v, ",") {
+		if name = strings.TrimSpace(name); name != "" {
+			*e = append(*e, name)
+		}
+	}
+	return nil
 }
 
 func (a *app) execute(ctx context.Context, args []string, timeout time.Duration, maxOutput int64) (entry, bool) {

@@ -213,7 +213,7 @@ func TestRunOversizeOutputIsNotCached(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer dir.Close()
-	if _, ok := load(dir, key(cmd)+cacheExt); ok {
+	if _, ok := load(dir, key(cmd, nil)+cacheExt); ok {
 		t.Error("an oversize result was cached")
 	}
 }
@@ -251,7 +251,7 @@ func TestKeyDistinguishesCommands(t *testing.T) {
 
 	seen := make(map[string][]string, len(tests))
 	for _, args := range tests {
-		k := key(args)
+		k := key(args, nil)
 		if prev, dup := seen[k]; dup {
 			t.Errorf("key(%q) collides with key(%q)", args, prev)
 		}
@@ -262,9 +262,9 @@ func TestKeyDistinguishesCommands(t *testing.T) {
 func TestKeyDependsOnWorkingDirectory(t *testing.T) {
 	args := []string{"pwd"}
 
-	first := key(args)
+	first := key(args, nil)
 	t.Chdir(t.TempDir())
-	if second := key(args); second == first {
+	if second := key(args, nil); second == first {
 		t.Error("key is identical across directories, want it to change")
 	}
 }
@@ -596,4 +596,78 @@ func TestPruneDoesNotBreakMutualExclusion(t *testing.T) {
 		t.Errorf("%d overlapping executions across %d runs; prune broke mutual exclusion", overlaps, executions)
 	}
 	t.Logf("%d executions, no overlap, while prune ran continuously", executions)
+}
+
+func TestKeyIncludesNamedEnv(t *testing.T) {
+	args := []string{"gh", "api", "user"}
+
+	t.Setenv("RECALL_TEST_TOKEN", "alpha")
+	withAlpha := key(args, []string{"RECALL_TEST_TOKEN"})
+	t.Setenv("RECALL_TEST_TOKEN", "beta")
+	withBeta := key(args, []string{"RECALL_TEST_TOKEN"})
+
+	if withAlpha == withBeta {
+		t.Error("key is identical across values of a named variable, want it to change")
+	}
+	if ignored := key(args, nil); ignored == withBeta {
+		t.Error("key without -env matches the key with -env, want them to differ")
+	}
+}
+
+func TestKeyIgnoresUnnamedEnv(t *testing.T) {
+	args := []string{"gh", "api", "user"}
+
+	t.Setenv("RECALL_TEST_OTHER", "alpha")
+	first := key(args, []string{"RECALL_TEST_TOKEN"})
+	t.Setenv("RECALL_TEST_OTHER", "beta")
+	if second := key(args, []string{"RECALL_TEST_TOKEN"}); second != first {
+		t.Error("key changed for a variable that -env did not name")
+	}
+}
+
+func TestKeyEnvOrderAndDuplicatesDoNotMatter(t *testing.T) {
+	args := []string{"kubectl", "get", "pods"}
+	t.Setenv("RECALL_TEST_A", "1")
+	t.Setenv("RECALL_TEST_B", "2")
+
+	want := key(args, []string{"RECALL_TEST_A", "RECALL_TEST_B"})
+	got := key(args, []string{"RECALL_TEST_B", "RECALL_TEST_A", "RECALL_TEST_B"})
+	if got != want {
+		t.Error("key depends on the order or repetition of -env names, want it stable")
+	}
+}
+
+func TestKeySeparatesUnsetFromEmpty(t *testing.T) {
+	args := []string{"aws", "sts", "get-caller-identity"}
+
+	os.Unsetenv("RECALL_TEST_PROFILE")
+	unset := key(args, []string{"RECALL_TEST_PROFILE"})
+	t.Setenv("RECALL_TEST_PROFILE", "")
+	empty := key(args, []string{"RECALL_TEST_PROFILE"})
+
+	if unset == empty {
+		t.Error("an unset variable keys the same as an empty one, want them to differ")
+	}
+}
+
+func TestRunEnvFlagSeparatesCachedResults(t *testing.T) {
+	a, out, _ := newApp(t)
+
+	marker := filepath.Join(t.TempDir(), "runs")
+	cmd := helperCmd(t, "-marker="+marker, "-stdout=result\n")
+	args := recallArgs([]string{"--ttl=1h", "--env=RECALL_TEST_TOKEN"}, cmd)
+
+	t.Setenv("RECALL_TEST_TOKEN", "alpha")
+	if code := a.run(t.Context(), args); code != 0 {
+		t.Fatalf("first run: exit code = %d, want 0", code)
+	}
+	out.Reset()
+	t.Setenv("RECALL_TEST_TOKEN", "beta")
+	if code := a.run(t.Context(), args); code != 0 {
+		t.Fatalf("second run: exit code = %d, want 0", code)
+	}
+
+	if got := countRuns(t, marker); got != 2 {
+		t.Errorf("command executed %d times, want 2 (a new token must miss the cache)", got)
+	}
 }
