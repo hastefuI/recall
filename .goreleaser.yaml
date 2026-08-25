@@ -66,6 +66,7 @@ dockers_v2:
     dockerfile: Dockerfile
     images:
       - "ghcr.io/{{ .Env.GORELEASER_REPO_OWNER }}/{{ .ProjectName }}"
+      - "{{ .Env.DOCKERHUB_USERNAME }}/{{ .ProjectName }}"
     tags:
       - "{{ .Version }}"
       - "latest"
