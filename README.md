@@ -1,128 +1,97 @@
 # recall [![Build](https://github.com/hastefuI/recall/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/hastefuI/recall/actions/workflows/ci.yml) [![Go](https://img.shields.io/badge/Go-1.27-00ADD8?logo=go&logoColor=white)](https://go.dev) [![License](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/hastefuI/recall/blob/main/LICENSE)
 
-Cache and recall CLI command results with a TTL. 🔄
+Cache and recall CLI command results with a TTL.
+
+<img src="./demo.gif" alt="A GitHub search API query taking 1.8s, then 0.006s from cache" style="width:100%; max-width:900px;" />
 
 ## Overview
 
-recall is used to avoid re-running expensive commands.
+`recall` is a command wrapper for avoiding repeated execution of slow, rate-limited, or expensive commands.
 
-It caches a command's result for a short window of time and returns the result from cache
-when the same command is invoked again with the same set of arguments.
+To use it, simply place `recall --` in front of an existing command. The first invocation runs normally and stores the result. Identical invocations from the same working directory return the cached result until the TTL expires.
 
-Example:
 ```bash
 $ time recall -- gh api user
 {"login":"octocat","id":1,"type":"User",...}
+
 real    0m0.31s
 
 $ time recall -- gh api user
 {"login":"octocat","id":1,"type":"User",...}
+
 real    0m0.01s
 ```
 
-recall is particularly useful in CI pipelines. A job may query the same API from
-several steps: once to decide what to build, again to label the result, again to
-report the outcome. Each call executes in full, even though the answer is
-identical. When parallel jobs share a rate limit, the duplicate calls can
-exhaust it and fail the run.
+Cached results preserve stdout, stderr, and the exit status of the original command.
 
-Development tooling follows the same pattern. Build scripts, code generators,
-and editor integrations often run the same command many times in one session.
-
-A short TTL backed cache keeps those loops responsive without changing the tools themselves.
-
-recall aims to stay lightweight and to keep its dependencies to a minimum. It
-needs no daemon, no config file, and no change to the command it wraps.
-
-Use it for any command that is slow, rate-limited, or billed per call.
+`recall` requires no daemon or configuration file and does not require changing the command it wraps.
 
 ## Features
 
-- Zero configuration. Install the binary and start caching.
-- Cached calls return the same output and the same exit status as the original.
-- Concurrent duplicate calls collapse into a single run.
-- The cache stays private to you, and an untrusted directory is refused.
-- One static binary, no runtime dependencies. Runs on Linux, macOS, FreeBSD,
-  and Windows.
+- TTL-based caching with configurable expiration
+- Replays stdout, stderr, and exit status
+- Concurrent duplicate calls collapse into a single execution
+- Optional environment variables for cache-sensitive commands
+- Optional execution timeouts and output limits
+- Cache pruning for removing old results
+- User-private cache storage
+- One static binary with no runtime dependencies
+- Runs on Linux, macOS, FreeBSD, and Windows
 
 ## Installation
 
+### Homebrew
+
+```bash
+$ brew tap hastefui/tap
+$ brew install --cask recall
+```
+
+### Pre-built Binaries
+
+Download and extract the latest release for your platform from the repository's Releases page.
+
+Release binaries are available for Linux, macOS, FreeBSD, and Windows on amd64 and arm64.
+
 ### Build From Source
 
-recall requires Go 1.27 or newer. Clone this repository. Then run one of these
-commands:
+`recall` requires Go 1.27 or newer.
 
 ```bash
-# Build
 $ go build -o recall .
-
-# Install
 $ go install .
-```
-
-### Docker
-
-```bash
-$ docker build -t recall .
-```
-
-The image runs as an unprivileged user. The image caches to `/tmp/recall`.
-recall can only cache a command that the image contains. Use the image as a
-base. The base image drops to a non-root user, so switch to root to install
-packages:
-
-```dockerfile
-FROM recall
-USER root
-RUN apk add --no-cache github-cli jq
-USER recall
-```
-
-A cache only helps next to the command it caches. A derived image pairs recall
-with the commands that your pipeline repeats. Each duplicate call then reads a
-file instead of the network. This pays off when an answer costs a lot and the
-pipeline asks for it often.
-
-Mount a volume over `/tmp/recall`. The cache then outlives the container, and
-every step in the pipeline shares it:
-
-```bash
-$ docker build -t ci-tools .
-$ docker run --rm -v recall-cache:/tmp/recall -e GH_TOKEN ci-tools \
-    --ttl=10m --env=GH_TOKEN -- gh api user
-```
-
-If your image already contains the commands you need, add recall to that image
-instead:
-
-```dockerfile
-FROM your-existing-tools-image
-COPY --from=recall /usr/local/bin/recall /usr/local/bin/recall
-ENTRYPOINT ["recall"]
 ```
 
 ### Verify Installation
 
-Run this command to verify the installation:
+```bash
+$ recall --version
+```
+
+Or run a command through `recall`:
 
 ```bash
 $ recall -- echo recalled
+recalled
 ```
 
 ## Quick Start
 
-Put `recall --` in front of a slow command:
+Put `recall --` in front of a command:
 
 ```bash
-recall -- kubectl get pods -o json
+$ recall -- kubectl get pods -o json
 ```
 
-Run the same command again. recall returns the stored result at once. To set how
-long the result stays valid, use `--ttl`:
+Run the same command again and `recall` returns the stored result.
+
+The default TTL is 30 seconds. Use `--ttl` to change it:
 
 ```bash
-recall --ttl=10s -- kubectl get pods -o json
+$ recall --ttl=10s -- kubectl get pods -o json
 ```
+
+Once the TTL expires, the command executes again and replaces the cached result.
 
 ## Usage
 
@@ -139,18 +108,134 @@ recall [flags] -- <command> [args...]
   --version     print version and exit
 ```
 
-recall keys the cache on the working directory, the command, and the arguments.
-It ignores the environment, because it cannot know which variables a command
-reads. Name the ones that matter with `--env`, or two calls that differ only in
-a token or a profile share one result:
+## Examples
+
+### Cache an API Request
+
+Cache a GitHub API response for 10 minutes:
 
 ```bash
-recall --ttl=10m --env=GH_TOKEN -- gh api user
-recall --ttl=5m --env=AWS_PROFILE,AWS_REGION -- aws sts get-caller-identity
+$ recall --ttl=10m -- gh api user
+```
+
+Repeated calls return the same result without another API request.
+
+### Cache Kubernetes State
+
+Use a short TTL for frequently requested cluster state:
+
+```bash
+$ recall --ttl=10s -- kubectl get pods -o json
+```
+
+### Include Environment Variables
+
+Use `--env` when the result of a command depends on an environment variable:
+
+```bash
+$ recall --ttl=10m --env=GH_TOKEN -- gh api user
+```
+
+Multiple variables can be provided as a comma-separated list:
+
+```bash
+$ recall --ttl=5m --env=AWS_PROFILE,AWS_REGION -- \
+    aws sts get-caller-identity
+```
+
+`--env` is also repeatable:
+
+```bash
+$ recall --env=AWS_PROFILE --env=AWS_REGION -- \
+    aws sts get-caller-identity
+```
+
+### Force a Refresh
+
+Ignore an existing cached result and execute the command again:
+
+```bash
+$ recall --force -- gh api user
+```
+
+### Set an Execution Timeout
+
+Stop a command that runs longer than expected:
+
+```bash
+$ recall --timeout=30s -- some-expensive-command
+```
+
+Timed-out commands are not cached.
+
+### Limit Cached Output
+
+Skip caching when command output exceeds a configured size:
+
+```bash
+$ recall --max-output=5242880 -- some-command
+```
+
+The command still runs normally, but oversized output is not stored.
+
+## Use Cases
+
+- CI pipelines that repeat the same API requests across steps
+- Development scripts that repeatedly execute slow commands
+- Rate-limited APIs and CLI tools
+- Commands backed by billed APIs or compute
+- Kubernetes and infrastructure status queries
+- Build tooling and code generation
+- Short-lived API and metadata lookups
+
+## Docker
+
+Build the image:
+
+```bash
+$ docker build -t recall .
+```
+
+The image runs as an unprivileged user and caches results under `/tmp/recall`.
+
+`recall` can only execute commands that exist inside the container. For CI use, create a derived image containing the tools that need to be cached:
+
+```dockerfile
+FROM recall
+
+USER root
+RUN apk add --no-cache github-cli jq
+USER recall
+```
+
+Build the derived image:
+
+```bash
+$ docker build -t ci-tools .
+```
+
+Mount a volume over `/tmp/recall` to persist the cache between containers:
+
+```bash
+$ docker run --rm \
+    -v recall-cache:/tmp/recall \
+    -e GH_TOKEN \
+    ci-tools \
+    --ttl=10m --env=GH_TOKEN -- gh api user
+```
+
+If an existing image already contains the required tools, copy `recall` into it instead:
+
+```dockerfile
+FROM your-existing-tools-image
+
+COPY --from=recall /usr/local/bin/recall /usr/local/bin/recall
+
+ENTRYPOINT ["recall"]
 ```
 
 ## License
 
-Licensed under [MIT License](https://opensource.org/licenses/MIT), see [LICENSE](./LICENSE) for details.
+Licensed under the MIT License. See `LICENSE` for details.
 
 Copyright (c) 2026 hasteful.
