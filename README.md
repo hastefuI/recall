@@ -1,4 +1,4 @@
-# recall [![Build](https://github.com/hastefuI/recall/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/hastefuI/recall/actions/workflows/ci.yml) [![Go](https://img.shields.io/badge/Go-1.27-00ADD8?logo=go&logoColor=white)](https://go.dev) [![License](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/hastefuI/recall/blob/main/LICENSE)
+# recall [![Build](https://github.com/hastefuI/recall/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/hastefuI/recall/actions/workflows/ci.yml) [![Go](https://img.shields.io/badge/Go-1.27-00ADD8?logo=go&logoColor=white)](https://go.dev) [![Release](https://img.shields.io/github/v/release/hastefuI/recall)](https://github.com/hastefuI/recall/releases) [![License](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/hastefuI/recall/blob/main/LICENSE)
 
 Cache and recall CLI command results with a TTL.
 
