@@ -236,6 +236,6 @@ ENTRYPOINT ["recall"]
 
 ## License
 
-Licensed under the MIT License. See `LICENSE` for details.
+Licensed under the [MIT License](https://opensource.org/licenses/MIT). See [`LICENSE`](https://github.com/hastefuI/recall/blob/main/LICENSE) for details.
 
-Copyright (c) 2026 hasteful.
+Copyright (c) 2026-present hasteful
