@@ -47,6 +47,15 @@ jobs:
             GOOS=${target%/*} GOARCH=${target#*/} go build ./...
           done
 
+  vuln:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - run: go run golang.org/x/vuln/cmd/govulncheck@v1.7.0 ./...
+
   docker:
     runs-on: ubuntu-latest
     steps:
