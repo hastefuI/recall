@@ -8,9 +8,10 @@ RUN --mount=type=cache,target=/go/pkg/mod go mod download
 
 COPY *.go ./
 
+ARG VERSION=dev
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
-    CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/recall .
+    CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X main.version=${VERSION}" -o /out/recall .
 
 FROM alpine:3.24
 

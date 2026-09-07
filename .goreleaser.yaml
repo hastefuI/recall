@@ -73,6 +73,8 @@ dockers_v2:
     platforms:
       - linux/amd64
       - linux/arm64
+    build_args:
+      VERSION: "{{ .Version }}"
     extra_files:
       - go.mod
       - go.sum
