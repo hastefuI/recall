@@ -1,4 +1,4 @@
-# recall [![Build](https://github.com/hastefuI/recall/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/hastefuI/recall/actions/workflows/ci.yml) [![Go](https://img.shields.io/badge/Go-1.27-00ADD8?logo=go&logoColor=white)](https://go.dev) [![Release](https://img.shields.io/github/v/release/hastefuI/recall)](https://github.com/hastefuI/recall/releases) [![License](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/hastefuI/recall/blob/main/LICENSE)
+# recall [![Build](https://github.com/hastefuI/recall/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/hastefuI/recall/actions/workflows/ci.yml) [![Go](https://img.shields.io/badge/Go-1.27-00ADD8?logo=go&logoColor=white)](https://go.dev) [![Release](https://img.shields.io/github/v/release/hastefuI/recall)](https://github.com/hastefuI/recall/releases) [![License](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/hastefuI/recall/blob/main/LICENSE) [![Go Reference](https://pkg.go.dev/badge/go.hasteful.org/recall.svg)](https://pkg.go.dev/go.hasteful.org/recall)
 
 Cache and recall CLI command results with a TTL.
 
@@ -53,9 +53,17 @@ Download and extract the latest release for your platform from the repository's 
 
 Release binaries are available for Linux, macOS, FreeBSD, and Windows on amd64 and arm64.
 
-### Build From Source
+### Go
 
 `recall` requires Go 1.27 or newer.
+
+```bash
+$ go install go.hasteful.org/recall@latest
+```
+
+### Build From Source
+
+Clone this repository, and then:
 
 ```bash
 $ go build -o recall .

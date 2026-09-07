@@ -1,4 +1,4 @@
-module recall
+module go.hasteful.org/recall
 
 go 1.27
 
