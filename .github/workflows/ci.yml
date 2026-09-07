@@ -64,6 +64,10 @@ jobs:
       - name: cached invocation runs the command once
         run: |
           docker run --rm --entrypoint sh recall -c '
-            recall --ttl=5m -- echo hi >/dev/null
-            recall --ttl=5m -- echo hi >/dev/null
+            set -e
+            out1=$(recall --ttl=5m -- sh -c "echo run >> /tmp/runs; echo recall")
+            out2=$(recall --ttl=5m -- sh -c "echo run >> /tmp/runs; echo recall")
+            test "$out1" = recall
+            test "$out2" = recall
+            test "$(cat /tmp/runs)" = run
           '
